@@ -230,6 +230,7 @@ top_keywords_per_specialty = (
     .groupby("provider_specialty")
     .head(5)
 )
+print(top_keywords_per_specialty.head(20))
 st.subheader("🔑 Top Diagnosis Keywords by Provider Specialty")
 
 fig10, ax10 = plt.subplots(figsize=(12,8))
