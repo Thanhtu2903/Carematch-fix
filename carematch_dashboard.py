@@ -367,57 +367,72 @@ st.markdown("""***CONCLUSION***
 
 #Generative AI
 # ===========================
-# 🧠 Generative Triage (in-dashboard)
+# ===========================
+# 🧠 Generative Triage (drop-in block)
+# Requirements already in your app: streamlit, pandas, numpy, sklearn
+# Optional: OpenAI key in Secrets -> OPENAI_API_KEY
 # ===========================
 import numpy as np
+import pandas as pd
+import streamlit as st
 from sklearn.metrics.pairwise import cosine_similarity
 
 st.divider()
-st.header("🧠 Generative Triage (RAG on your data)")
+st.header("🧠 Generative Triage (on your historical data)")
 
-# ---- 0) Precompute once (cache in session) ----
+# ---- 0) Attach model clusters to DF & build stats once ----
+if "_cluster" not in carematch.columns:
+    try:
+        labels = kmb.labels_
+    except Exception:
+        labels = kmb.fit_predict(X_text)  # fallback if not yet fitted on your features
+    if len(labels) != len(carematch):
+        st.error("KMeans labels length mismatch. Make sure KMeans was fit on the same rows as 'carematch'.")
+        st.stop()
+    carematch = carematch.copy()
+    carematch["_cluster"] = labels
+
+# numeric coercions for safety
+for _col in ["wait_time", "urgency_score"]:
+    if _col in carematch.columns:
+        carematch[_col] = pd.to_numeric(carematch[_col], errors="coerce")
+
+# cache triage stats in session
 if "triage_cache" not in st.session_state:
     tri = {}
-
-    # a) cosine-ready TFIDF matrix of condition_summary you already built: X_text, vectorizer
-    #    (assumes you created these above when clustering)
     tri["X_text"] = X_text
     tri["vectorizer"] = vectorizer
+    tri["labels"] = carematch["_cluster"].values
+    tri["k"] = int(carematch["_cluster"].max() + 1)
 
-    # b) labels from KMeans (kmb.labels_)
-    labels = kmb.labels_
-    tri["labels"] = labels
-    tri["k"] = int(labels.max() + 1)
-
-    # c) cluster centroids in TFIDF space (for **text-only** nearest cluster)
-    #    For sparse matrix, mean by cluster:
+    # text-only centroids for nearest-cluster by note
     centroids = []
     for c in range(tri["k"]):
-        idx = np.where(labels == c)[0]
-        if len(idx) == 0:
-            # empty cluster (shouldn't happen), use zeros
-            centroids.append(np.zeros((X_text.shape[1],), dtype=np.float32))
-        else:
-            centroids.append(X_text[idx].mean(axis=0))
-    # store as dense row vectors for fast cosine
+        idx = np.where(tri["labels"] == c)[0]
+        centroids.append(tri["X_text"][idx].mean(axis=0) if len(idx) else 0*tri["X_text"][0])
     tri["centroids"] = [np.asarray(c).ravel() for c in centroids]
 
-    # d) cluster stats -> default specialty & urgency mapping
-    #    (you already have 'provider_specialty', 'wait_time', 'urgency_score')
-    carematch["_cluster"] = labels
-    # most common specialty per cluster
-    tri["top_spec_by_cluster"] = (
-        carematch.groupby("_cluster")["provider_specialty"]
-        .agg(lambda s: s.value_counts().index[0] if len(s.dropna()) else "Primary Care")
-        .to_dict()
-    )
-    # average urgency per cluster
-    tri["avg_urg_by_cluster"] = carematch.groupby("_cluster")["urgency_score"].mean().to_dict()
-    # average wait by cluster+specialty (fallback to cluster mean)
-    tri["avg_wait_by_cs"] = (
-        carematch.groupby(["_cluster","provider_specialty"])["wait_time"]
-        .mean().to_dict()
-    )
+    # statistics for recommendations
+    if "provider_specialty" in carematch.columns:
+        tri["top_spec_by_cluster"] = (
+            carematch.groupby("_cluster")["provider_specialty"]
+                     .agg(lambda s: s.value_counts().index[0] if len(s.dropna()) else "Primary Care")
+                     .to_dict()
+        )
+    else:
+        tri["top_spec_by_cluster"] = {c: "Primary Care" for c in range(tri["k"])}
+
+    if "urgency_score" in carematch.columns:
+        tri["avg_urg_by_cluster"] = carematch.groupby("_cluster")["urgency_score"].mean().to_dict()
+    else:
+        tri["avg_urg_by_cluster"] = {c: 2.0 for c in range(tri["k"])}
+
+    if set(["provider_specialty","wait_time"]).issubset(carematch.columns):
+        tri["avg_wait_by_cs"] = (
+            carematch.groupby(["_cluster","provider_specialty"])["wait_time"].mean().to_dict()
+        )
+    else:
+        tri["avg_wait_by_cs"] = {}
 
     st.session_state["triage_cache"] = tri
 
@@ -430,17 +445,12 @@ note = st.text_area(
     height=140,
 )
 zip_in = st.text_input("Zip code (optional)", value="")
-
-use_llm = st.toggle("Use OpenAI for rationale (optional)", value=False,
-                    help="Requires OPENAI_API_KEY in Streamlit secrets")
+use_llm = st.toggle("Use OpenAI rationale (optional)", value=False, help="Requires OPENAI_API_KEY in Secrets")
 
 # ---- 2) Helpers ----
 def nearest_cluster_for_text(text: str) -> int:
     q = tri["vectorizer"].transform([text])
-    # cosine to centroids
-    sims = []
-    for cvec in tri["centroids"]:
-        sims.append(float(cosine_similarity(q, cvec.reshape(1,-1))))
+    sims = [float(cosine_similarity(q, c.reshape(1,-1))) for c in tri["centroids"]]
     return int(np.argmax(sims))
 
 def retrieve_similar_notes(text: str, k: int = 5) -> pd.DataFrame:
@@ -452,98 +462,99 @@ def retrieve_similar_notes(text: str, k: int = 5) -> pd.DataFrame:
     return out
 
 def urgency_bucket(avg_u: float) -> str:
-    # adjust thresholds to your scale; from your summaries:
+    # tune thresholds for your scale
+    if pd.isna(avg_u): return "Soon"
     if avg_u >= 3.5: return "Urgent"
     if avg_u >= 2.0: return "Soon"
     return "Routine"
 
 # ---- 3) Run triage ----
 if st.button("Generate triage") and note.strip():
-    # a) predict cluster by text
+    # a) predict cluster
     c_pred = nearest_cluster_for_text(note)
+
+    # b) recommend urgency & specialty from cluster stats
     avg_u = tri["avg_urg_by_cluster"].get(c_pred, 2.0)
     triage_cat = urgency_bucket(avg_u)
-
-    # b) choose specialty: top historical specialty in that cluster
     spec = tri["top_spec_by_cluster"].get(c_pred, "Primary Care")
 
-    # c) expected wait (cluster+spec), fallback to cluster mean
-    wait = tri["avg_wait_by_cs"].get((c_pred, spec), carematch[carematch["_cluster"]==c_pred]["wait_time"].mean())
+    # c) expected wait (cluster+spec), fallback to cluster mean, then global mean
+    if tri["avg_wait_by_cs"]:
+        cluster_mean = carematch.loc[carematch["_cluster"] == c_pred, "wait_time"].mean()
+        wait = tri["avg_wait_by_cs"].get((c_pred, spec), cluster_mean)
+    else:
+        wait = carematch["wait_time"].mean() if "wait_time" in carematch.columns else None
+    if pd.notnull(wait):
+        wait = float(np.round(wait, 1))
 
-    # d) retrieve similar cases for RAG preview
+    # d) retrieve similar cases for transparency
     sims = retrieve_similar_notes(note, k=5)
 
-    # e) Optional: call OpenAI for JSON rationale
+    # e) optional: OpenAI JSON rationale (never downgrades safety)
     llm_obj = None
     if use_llm:
-        import json as _json
-        PROMPT_TMPL = """
-        You are a clinical triage assistant. Based on the patient note and similar historical cases,
-        return strict JSON with keys: triage, specialty, next_step, rationale, confidence_reason.
-        Patient note:
-        {note}
+        api_key = st.secrets.get("OPENAI_API_KEY")
+        if api_key:
+            from openai import OpenAI
+            client = OpenAI(api_key=api_key)
+            PROMPT = f"""
+You are a cautious clinical triage assistant. Given this patient note and summaries of similar cases, return strict JSON:
+{{"triage": "...", "specialty": "...", "next_step": "...", "rationale": "...", "confidence_reason": "..."}}
+If unsure or risk detected, choose the safer (more urgent) option and mention 'ESCALATE' in rationale.
 
-        Similar cases:
-        {cases}
+Patient note:
+{note}
 
-        Be conservative. If risk is unclear, escalate.
-        """
-        cases_txt = "\n".join(
-            f"- {row['condition_summary'][:160]} | urgency={row.get('urgency_score')} | spec={row.get('provider_specialty')} | wait={row.get('wait_time')} | sim={row['sim']:.3f}"
-            for _, row in sims.iterrows()
-        )
-        prompt = PROMPT_TMPL.format(note=note, cases=cases_txt)
-
-        api_key = st.secrets.get("OPENAI_API_KEY", None)
-        if not api_key:
-            st.info("No OPENAI_API_KEY in secrets; using rule-based output only.")
-        else:
+Similar cases:
+""" + "\n".join(
+                f"- {row['condition_summary'][:160]} | urgency={row.get('urgency_score')} | spec={row.get('provider_specialty')} | wait={row.get('wait_time')} | sim={row['sim']:.3f}"
+                for _, row in sims.iterrows()
+            )
             try:
-                from openai import OpenAI
-                client = OpenAI(api_key=api_key)
-                r = client.chat.completions.create(
+                resp = client.chat.completions.create(
                     model="gpt-4o-mini",
-                    messages=[{"role":"user","content":prompt}],
-                    temperature=0.1, max_tokens=300
+                    messages=[{"role":"user","content":PROMPT}],
+                    temperature=0.1, max_tokens=320
                 )
-                content = r.choices[0].message.content
-                # parse JSON block
+                content = resp.choices[0].message.content
                 try:
-                    llm_obj = _json.loads(content)
+                    llm_obj = json.loads(content)
                 except Exception:
                     s, e = content.find("{"), content.rfind("}")
-                    if s >= 0 and e > s:
-                        llm_obj = _json.loads(content[s:e+1])
+                    if s >= 0 and e > s: llm_obj = json.loads(content[s:e+1])
             except Exception as e:
                 st.warning(f"OpenAI call failed: {e}")
+        else:
+            st.info("No OPENAI_API_KEY in Secrets; showing rule-based result only.")
 
-    # f) Merge (safety-first: never downgrade)
-    def priority(x): return {"Routine":1,"Soon":2,"Urgent":3}.get(x,2)
+    # f) merge LLM (don’t downgrade)
+    def pri(x): return {"Routine":1,"Soon":2,"Urgent":3}.get(x,2)
     out = {
         "triage": triage_cat,
         "specialty": spec,
         "next_step": "in-office visit" if triage_cat!="Routine" else "telehealth or clinic",
-        "expected_wait_days": float(np.round(wait,1)) if pd.notnull(wait) else None,
-        "rationale": f"Based on nearest cluster {c_pred} (avg urgency {avg_u:.2f}) and historical specialty mix.",
-        "confidence_reason": "Historical pattern + cosine similarity",
+        "expected_wait_days": wait,
+        "rationale": f"Nearest cluster {c_pred} (avg urgency {avg_u:.2f}); recommendation from historical patterns.",
+        "confidence_reason": "Cosine similarity + cluster statistics",
         "predicted_cluster": int(c_pred),
     }
-    if llm_obj:
-        if priority(llm_obj.get("triage", triage_cat)) >= priority(triage_cat):
-            out.update({
-                "triage": llm_obj.get("triage", triage_cat),
-                "specialty": llm_obj.get("specialty", spec),
-                "next_step": llm_obj.get("next_step", out["next_step"]),
-                "rationale": llm_obj.get("rationale", out["rationale"]),
-                "confidence_reason": llm_obj.get("confidence_reason", out["confidence_reason"]),
-            })
+    if llm_obj and pri(llm_obj.get("triage", triage_cat)) >= pri(triage_cat):
+        out.update({
+            "triage": llm_obj.get("triage", out["triage"]),
+            "specialty": llm_obj.get("specialty", out["specialty"]),
+            "next_step": llm_obj.get("next_step", out["next_step"]),
+            "rationale": llm_obj.get("rationale", out["rationale"]),
+            "confidence_reason": llm_obj.get("confidence_reason", out["confidence_reason"]),
+        })
 
-    # g) Show result + similar cases
+    # g) display
     c1, c2, c3 = st.columns(3)
     c1.metric("Predicted cluster", out["predicted_cluster"])
     c2.metric("Triage", out["triage"])
     c3.metric("Specialty", out["specialty"])
     st.write(f"**Next step:** {out['next_step']}  |  **Expected wait (days):** {out['expected_wait_days']}")
-    st.caption(out["rationale"] + f"  ·  {out['confidence_reason']}")
+    st.caption(out["rationale"] + f" · {out['confidence_reason']}")
     st.subheader("Similar historical cases")
     st.dataframe(sims[["condition_summary","urgency_score","provider_specialty","wait_time","sim"]], use_container_width=True)
+# ===== end triage block =====
+
