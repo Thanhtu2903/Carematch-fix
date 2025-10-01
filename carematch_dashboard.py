@@ -303,6 +303,7 @@ else:
         st.pyplot(fig11)
 
    # ---- Cluster insights ----
+try:
 st.subheader("📑 Cluster Insights")
 st.markdown("""Patients with similar diagnosis keywords are grouped together.
 Structured features help separate acute vs. chronic/long-term management groups.""")
