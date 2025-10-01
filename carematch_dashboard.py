@@ -378,7 +378,7 @@ import streamlit as st
 from sklearn.metrics.pairwise import cosine_similarity
 
 st.divider()
-st.header("🧠 Generative Triage (on your historical data)")
+st.header("🧠 Generative Triage")
 
 # ---- 0) Attach model clusters to DF & build stats once ----
 if "_cluster" not in carematch.columns:
