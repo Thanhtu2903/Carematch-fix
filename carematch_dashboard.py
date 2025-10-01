@@ -11,6 +11,7 @@ from sklearn.cluster import MiniBatchKMeans       # works with sparse
 from sklearn.decomposition import TruncatedSVD
 from pathlib import Path
 import streamlit as st
+import re
 
 
 st.markdown(""" ***GROUP 4***: TU PHAM & MINH NGUYEN""")
