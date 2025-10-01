@@ -215,4 +215,33 @@ fig9, ax9 = plt.subplots(figsize=(10,6))
 sns.barplot(data=keyword_counts.head(15), x="count", y="diagnosis_keyword", ax=ax9)
 ax9.set_xlabel("Count"); ax9.set_ylabel("Diagnosis keyword")
 st.pyplot(fig9)
+# Count diagnosis keyword frequency by provider_specialty
+keyword_by_specialty = (
+    carematch.dropna(subset=["diagnosis", "provider_specialty"])
+            .groupby(["provider_specialty", "diagnosis"])
+            .size()
+            .reset_index(name="count")
+)
 
+# Get top 5 keywords per specialty
+top_keywords_per_specialty = (
+    keyword_by_specialty
+    .sort_values(["provider_specialty", "count"], ascending=[True, False])
+    .groupby("provider_specialty")
+    .head(5)
+)
+st.subheader("🔑 Top Diagnosis Keywords by Provider Specialty")
+
+fig10, ax10 = plt.subplots(figsize=(12,8))
+sns.barplot(
+    data=top_keywords_per_specialty,
+    x="count",
+    y="diagnosis",
+    hue="provider_specialty",
+    dodge=False,
+    ax=ax10
+)
+ax10.set_title("Top Keywords per Provider Specialty")
+ax10.set_xlabel("Count")
+ax10.set_ylabel("Diagnosis Keyword")
+st.pyplot(fig10)
