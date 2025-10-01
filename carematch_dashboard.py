@@ -302,15 +302,15 @@ else:
         ax11.set_xlabel("Component 1"); ax11.set_ylabel("Component 2")
         st.pyplot(fig11)
 
-       # ---- Cluster insights ----
-
+   # ---- Cluster insights ----
 st.subheader("📑 Cluster Insights")
 st.markdown("""Patients with similar diagnosis keywords are grouped together.
 Structured features help separate acute vs. chronic/long-term management groups.""")
+
 for c in sorted(carematch.loc[mask, "cluster"].unique()):
     subset = carematch.loc[(carematch["cluster"] == c)]
     st.markdown(f"### 🔹 Cluster {int(c)} Summary")
-    
+
     # Show top 5 diagnosis keywords
     top_diag = subset["diagnosis"].value_counts().head(5)
     top_diag_df = top_diag.reset_index()
