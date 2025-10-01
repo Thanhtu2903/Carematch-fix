@@ -347,13 +347,19 @@ else:
         st.exception(e)
 st.markdown("""***Key Takeaways***
 
-- Clusters are not distinguished by wait time, but by provider specialty demand.
+- Overall load: Clusters 0, 2, and 3 are high-volume across all specialties; Cluster 1 is the lightest.
 
-- Resource allocation should therefore focus on specialty coverage rather than purely reducing wait times.
+- Primary-care backbone: Internal Medicine and Family Medicine are the largest columns in most clusters → these two are your capacity bottlenecks.
 
-- Cluster 1 and Cluster 3 represent the highest patient loads and may require more staffing and scheduling flexibility to balance demand.
+- Family Medicine peaks in Cluster 2 (routine/primary-care demand).
 
-- Clusters 0 and 2, though smaller, should not be overlooked as they might represent unique patient needs (e.g., targeted chronic conditions or specific demographics).""")
+- Internal Medicine is especially high in Clusters 0 and 3 (more complex/older patients).
+
+- Psychiatry: Strong volumes in Clusters 2 & 3 → sustained mental-health demand beyond the “depression cluster” you might expect. Plan BH capacity accordingly.
+
+- Dermatology: Present in every cluster with sizable counts → steady baseline skin-care demand, not just in one segment.
+
+- Pediatrics: Material in all clusters → confirm age mix; if adult dataset, these may be pediatric-coded visits or family appointments included..""")
 
 st.markdown("""***CONCLUSION***
 - Our goal of the project is to improve wait time for patients’ appointment through analyzing the symptoms and the information about the patient such as zip code, provider specialty, age.
