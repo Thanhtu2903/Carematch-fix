@@ -1,19 +1,38 @@
 
-import yake
-import matplotlib.pyplot as plt
-import seaborn as sns
-import pandas as pd
-from pathlib import Path
-from scipy.sparse import hstack
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.preprocessing import StandardScaler
-from sklearn.cluster import MiniBatchKMeans       # works with sparse
-from sklearn.decomposition import TruncatedSVD
+# ---- Startup guard: surface real errors in the UI ----
 from pathlib import Path
 import streamlit as st
-import re
-import matplotlib.pyplot as plt
-from wordcloud import WordCloud, STOPWORDS
+
+st.set_page_config(page_title="Startup Check", layout="wide")
+
+with st.status("Starting up…", expanded=True):
+    try:
+        # Imports that commonly fail if requirements are missing
+        from wordcloud import WordCloud, STOPWORDS  # needs Pillow
+        import pandas as pd
+        import matplotlib.pyplot as plt
+        import seaborn as sns
+        from scipy.sparse import hstack
+        from sklearn.feature_extraction.text import TfidfVectorizer
+        from sklearn.preprocessing import StandardScaler
+        from sklearn.cluster import MiniBatchKMeans
+        from sklearn.decomposition import TruncatedSVD
+        import yake
+
+        # Verify CSV is exactly where your code expects it
+        csv_path = Path(__file__).resolve().parent / "carematch_requests.csv"
+        if not csv_path.exists():
+            raise FileNotFoundError(f"CSV not found at: {csv_path}")
+
+        # Quick read test
+        _startup_df = pd.read_csv(csv_path)
+
+        st.success("Startup imports & data check passed.")
+    except Exception as e:
+        st.error("Startup failed. Details below.")
+        st.exception(e)
+        st.stop()
+# ---- End startup guard ----
 
 st.markdown(""" ***GROUP 4***: TU PHAM & MINH NGUYEN""")
 # === Dashboard Title ===
