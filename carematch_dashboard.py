@@ -5,6 +5,7 @@ import seaborn as sns
 import re
 from wordcloud import WordCloud, STOPWORDS
 import yake
+from scipy.sparse import hstack
 
 st.markdown(""" ***GROUP 4***: TU PHAM & MINH NGUYEN""")
 # === Dashboard Title ===
