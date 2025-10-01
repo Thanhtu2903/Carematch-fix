@@ -6,6 +6,8 @@ import re
 from wordcloud import WordCloud, STOPWORDS
 import yake
 from scipy.sparse import hstack
+from sklearn.feature_extraction.text import TfidfVectorizer
+import sklearn
 
 st.markdown(""" ***GROUP 4***: TU PHAM & MINH NGUYEN""")
 # === Dashboard Title ===
