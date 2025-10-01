@@ -7,3 +7,9 @@ scipy
 yake
 wordcloud
 matplotlib
+streamlit==1.38.0
+pandas==2.2.2
+numpy==1.26.4
+sentence-transformers==2.7.0
+faiss-cpu==1.8.0.post1
+openai==1.43.0
