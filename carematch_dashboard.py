@@ -303,10 +303,10 @@ else:
         st.pyplot(fig11)
 
        # ---- Cluster insights ----
+
 st.subheader("📑 Cluster Insights")
 st.markdown("""Patients with similar diagnosis keywords are grouped together.
 Structured features help separate acute vs. chronic/long-term management groups.""")
-
 for c in sorted(carematch.loc[mask, "cluster"].unique()):
     subset = carematch.loc[(carematch["cluster"] == c)]
     st.markdown(f"### 🔹 Cluster {int(c)} Summary")
