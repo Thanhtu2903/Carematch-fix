@@ -259,15 +259,16 @@ else:
         vectorizer = TfidfVectorizer(stop_words="english")
         X_text = vectorizer.fit_transform(carematch.loc[mask, "diagnosis"].astype(str))
 
-        # ---- Scale structured features (dense to start, that’s fine) ----
+        # ---- Scale structured features ----
         cluster_scaler = StandardScaler()
         X_struct = cluster_scaler.fit_transform(
-    carematch.loc[mask, ["age", "urgency_score", "chronic_conditions_count", "mental_health_flag"]]
-)
-        # ---- Fuse into one sparse-like design (X_text is sparse; hstack keeps it efficient) ----
+            carematch.loc[mask, ["age", "urgency_score", "chronic_conditions_count", "mental_health_flag"]]
+        )
+
+        # ---- Fuse into one sparse-like design ----
         X_cluster = hstack([X_text, X_struct])
 
-        # ---- Elbow method to choose k ----
+        # ---- Elbow method ----
         st.header("📉 Elbow Method for Optimal k")
         inertia = []
         K = range(2, 11)
@@ -281,7 +282,7 @@ else:
         ax10.set_ylabel("Inertia (Within-Cluster Sum of Squares)")
         st.pyplot(fig10)
 
-        # ---- Sidebar: choose k and fit final model ----
+        # ---- Sidebar: choose k ----
         st.sidebar.subheader("⚙️ Clustering Parameters")
         k = st.sidebar.slider("Select number of clusters (k)", min_value=2, max_value=10, value=4)
 
@@ -289,10 +290,10 @@ else:
         labels = kmeans.fit_predict(X_cluster)
         carematch.loc[mask, "cluster"] = labels
 
-        # ---- 2D visualization with TruncatedSVD (PCA-like for sparse) ----
+        # ---- 2D visualization ----
         st.subheader("📊 2D Visualization of Clusters")
         svd = TruncatedSVD(n_components=2, random_state=42)
-        X_2d = svd.fit_transform(X_text)  # use text-only for a clean visual; could also use X_cluster
+        X_2d = svd.fit_transform(X_text)
         fig11, ax11 = plt.subplots(figsize=(8,6))
         sns.scatterplot(
             x=X_2d[:,0], y=X_2d[:,1],
@@ -302,33 +303,35 @@ else:
         ax11.set_xlabel("Component 1"); ax11.set_ylabel("Component 2")
         st.pyplot(fig11)
 
-   # ---- Cluster insights ----
-try:
-st.subheader("📑 Cluster Insights")
-st.markdown("""Patients with similar diagnosis keywords are grouped together.
-Structured features help separate acute vs. chronic/long-term management groups.""")
+        # ---- Cluster insights ----
+        st.subheader("📑 Cluster Insights")
+        st.markdown("""Patients with similar diagnosis keywords are grouped together.
+        Structured features help separate acute vs. chronic/long-term management groups.""")
 
-for c in sorted(carematch.loc[mask, "cluster"].unique()):
-    subset = carematch.loc[(carematch["cluster"] == c)]
-    st.markdown(f"### 🔹 Cluster {int(c)} Summary")
+        for c in sorted(carematch.loc[mask, "cluster"].unique()):
+            subset = carematch.loc[carematch["cluster"] == c]
+            st.markdown(f"### 🔹 Cluster {int(c)} Summary")
 
-    # Show top 5 diagnosis keywords
-    top_diag = subset["diagnosis"].value_counts().head(5)
-    top_diag_df = top_diag.reset_index()
-    top_diag_df.columns = ["diagnosis", "count"]
-    st.dataframe(top_diag_df)
+            # Top 5 diagnosis keywords
+            top_diag = subset["diagnosis"].value_counts().head(5)
+            top_diag_df = top_diag.reset_index()
+            top_diag_df.columns = ["diagnosis", "count"]
+            st.dataframe(top_diag_df)
 
-    # Numeric summaries
-    st.write("**Avg Urgency:**", round(subset["urgency_score"].mean(), 2))
-    st.write("**Avg Chronic Conditions:**", round(subset["chronic_conditions_count"].mean(), 2))
-    st.write("**Mental Health Flag %:**", round(subset["mental_health_flag"].mean()*100, 2), "%")
+            # Numeric summaries
+            st.write("**Avg Age:**", round(subset["age"].mean(), 1))
+            st.write("**Avg Urgency:**", round(subset["urgency_score"].mean(), 2))
+            st.write("**Avg Chronic Conditions:**", round(subset["chronic_conditions_count"].mean(), 2))
+            st.write("**Mental Health Flag %:**", round(subset["mental_health_flag"].mean()*100, 2), "%")
 
+        # ---- Wait Time ----
         st.subheader("⏱️ Wait Time Distribution by Cluster")
         if "wait_time" in carematch.columns:
             fig12, ax12 = plt.subplots(figsize=(8,6))
             sns.boxplot(x="cluster", y="wait_time", data=carematch.loc[mask], ax=ax12)
             st.pyplot(fig12)
 
+        # ---- Provider Specialty ----
         st.subheader("🏥 Provider Specialty Distribution by Cluster")
         if "provider_specialty" in carematch.columns:
             fig13, ax13 = plt.subplots(figsize=(12,6))
@@ -336,11 +339,11 @@ for c in sorted(carematch.loc[mask, "cluster"].unique()):
             ax13.legend(bbox_to_anchor=(1.02, 1), loc="upper left", borderaxespad=0)
             st.pyplot(fig13)
 
+        # ---- Conclusion ----
         st.subheader("📑 ***CLUSTER CONCLUSION***")
         st.markdown("Use these clusters as priors inside the Triage Assistant to guide specialty routing and expected wait times.")
 
     except Exception as e:
-        # Show full traceback in the app while you iterate (remove later if you prefer)
         st.exception(e)
 st.markdown("""***Key Takeaways***
 
