@@ -303,7 +303,11 @@ else:
         st.subheader("📑 Cluster Insights")
         st.markdown("""Patients with similar diagnosis keywords are grouped together.
         Structured features help separate acute vs. chronic/long-term management groups.""")
-
+        st.markdown("""
+        - ***Cluster 0*** – Mixed acute + lifestyle (youngest, most urgent)
+        - ***Cluster 1*** – Musculoskeletal + derm + mood (older, mid urgency)
+        - ***Cluster 2*** – Preventive / common primary care (low urgency, high volume)
+        - ***Cluster 3*** – Acute cardio/resp/vision flags (oldest, higher risk)""")
         for c in sorted(carematch.loc[mask, "cluster"].unique()):
             subset = carematch.loc[carematch["cluster"] == c]
             st.markdown(f"### 🔹 Cluster {int(c)} Summary")
