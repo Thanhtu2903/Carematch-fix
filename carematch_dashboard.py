@@ -12,7 +12,8 @@ from sklearn.decomposition import TruncatedSVD
 from pathlib import Path
 import streamlit as st
 import re
-
+import matplotlib.pyplot as plt
+from wordcloud import WordCloud, STOPWORDS
 
 st.markdown(""" ***GROUP 4***: TU PHAM & MINH NGUYEN""")
 # === Dashboard Title ===
