@@ -230,16 +230,16 @@ top_keywords_per_specialty = (
 print(top_keywords_per_specialty.head(20))
 st.subheader("🔑 Top Diagnosis Keywords by Provider Specialty")
 
-fig10, ax10 = plt.subplots(figsize=(12,8))
-sns.barplot(
-    data=top_keywords_per_specialty,
-    x="count",
-    y="diagnosis",
-    hue="provider_specialty",
-    dodge=False,
-    ax=ax10
+pivot = keyword_by_specialty.pivot_table(
+    index="diagnosis",
+    columns="provider_specialty",
+    values="count",
+    aggfunc="sum",
+    fill_value=0
 )
-ax10.set_title("Top Keywords per Provider Specialty")
-ax10.set_xlabel("Count")
-ax10.set_ylabel("Diagnosis Keyword")
-st.pyplot(fig10)
+
+plt.figure(figsize=(12,8))
+sns.heatmap(pivot.head(20), annot=True, fmt="d", cmap="YlGnBu")
+plt.title("Top Keywords by Provider Specialty")
+st.pyplot(plt)
+
