@@ -180,4 +180,39 @@ if selected_month != "All":
     filtered = filtered[filtered['request_month'].dt.month == int(selected_month)]
 st.subheader("📊 Case Counts per Provider (Filtered by Month/Year)")
 st.dataframe(filtered)
+# === Keyword Extraction ===
+st.markdown("""***Data Preprocessing***:
+The dataset contained free-text entries under the column **condition_summary**.
+We extract a concise diagnosis keyword from each summary using **YAKE** to standardize inputs for clustering.""")
+
+st.header("🩺 Keyword Extraction from Condition Summaries")
+
+kw_extractor = yake.KeywordExtractor(top=1, stopwords=None)
+
+def extract_keyword(text):
+    if pd.isnull(text) or not str(text).strip():
+        return None
+    keywords = kw_extractor.extract_keywords(str(text))
+    return keywords[0][0] if keywords else None
+
+if "diagnosis" not in carematch.columns:
+    carematch["diagnosis"] = carematch["condition_summary"].apply(extract_keyword)
+
+st.subheader("Sample Condition Summaries with Diagnosis Keyword")
+st.dataframe(carematch[["condition_summary","diagnosis"]].head(50))
+
+keyword_counts = (carematch['diagnosis']
+                  .dropna()
+                  .value_counts()
+                  .reset_index())
+keyword_counts.columns = ["diagnosis_keyword","count"]
+
+st.subheader("Most Frequent Diagnosis Keywords")
+st.dataframe(keyword_counts.head(20))
+
+# Bar plot of top keywords
+fig9, ax9 = plt.subplots(figsize=(10,6))
+sns.barplot(data=keyword_counts.head(15), x="count", y="diagnosis_keyword", ax=ax9)
+ax9.set_xlabel("Count"); ax9.set_ylabel("Diagnosis keyword")
+st.pyplot(fig9)
 
