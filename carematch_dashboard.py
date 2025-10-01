@@ -9,6 +9,7 @@ from scipy.sparse import hstack
 from sklearn.feature_extraction.text import TfidfVectorizer
 import sklearn
 from sklearn.preprocessing import StandardScaler
+from sklearn.cluster import MiniBatchKMeans
 
 st.markdown(""" ***GROUP 4***: TU PHAM & MINH NGUYEN""")
 # === Dashboard Title ===
