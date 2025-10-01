@@ -306,17 +306,20 @@ else:
         st.subheader("📑 Cluster Insights")
         st.markdown("""Patients with similar diagnosis keywords are grouped together.
 Structured features help separate acute vs. chronic/long-term management groups.""")
+for c in sorted(carematch.loc[mask, "cluster"].unique()):
+    subset = carematch.loc[(carematch["cluster"] == c)]
+    st.markdown(f"### 🔹 Cluster {int(c)} Summary")
+    
+    # Show top 5 diagnosis keywords
+    top_diag = subset["diagnosis"].value_counts().head(5)
+    top_diag_df = top_diag.reset_index()
+    top_diag_df.columns = ["diagnosis", "count"]
+    st.dataframe(top_diag_df)
 
-        for c in sorted(carematch.loc[mask, "cluster"].unique()):
-            subset = carematch.loc[(carematch["cluster"] == c)]
-            st.markdown(f"### 🔹 Cluster {int(c)} Summary")
-            # Show top 5 diagnosis keywords
-            top_diag = subset["diagnosis"].value_counts().head(5)
-            st.dataframe(top_diag.reset_index().rename(columns={"index":"diagnosis","diagnosis":"count"}))
-            # Numeric summaries
-            st.write("**Avg Urgency:**", round(subset["urgency_score"].mean(), 2))
-            st.write("**Avg Chronic Conditions:**", round(subset["chronic_conditions_count"].mean(), 2))
-            st.write("**Mental Health Flag %:**", round(subset["mental_health_flag"].mean()*100, 2), "%")
+    # Numeric summaries
+    st.write("**Avg Urgency:**", round(subset["urgency_score"].mean(), 2))
+    st.write("**Avg Chronic Conditions:**", round(subset["chronic_conditions_count"].mean(), 2))
+    st.write("**Mental Health Flag %:**", round(subset["mental_health_flag"].mean()*100, 2), "%")
 
         st.subheader("⏱️ Wait Time Distribution by Cluster")
         if "wait_time" in carematch.columns:
