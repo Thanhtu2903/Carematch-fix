@@ -10,7 +10,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 import sklearn
 from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import MiniBatchKMeans
-
+from sklearn.decomposition import TruncatedSVD
 st.markdown(""" ***GROUP 4***: TU PHAM & MINH NGUYEN""")
 # === Dashboard Title ===
 st.title("📊 Carematch Dashboard")
