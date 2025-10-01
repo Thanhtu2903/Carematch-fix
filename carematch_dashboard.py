@@ -198,9 +198,6 @@ def extract_keyword(text):
 if "diagnosis" not in carematch.columns:
     carematch["diagnosis"] = carematch["condition_summary"].apply(extract_keyword)
 
-st.subheader("Sample Condition Summaries with Diagnosis Keyword")
-st.dataframe(carematch[["condition_summary","diagnosis"]].head(50))
-
 keyword_counts = (carematch['diagnosis']
                   .dropna()
                   .value_counts()
