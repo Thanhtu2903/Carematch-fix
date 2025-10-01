@@ -1,5 +1,5 @@
 import streamlit as st
-
+import matplotlib.pyplot as plt 
 st.markdown(""" ***GROUP 4***: TU PHAM & MINH NGUYEN""")
 # === Dashboard Title ===
 st.title("📊 Carematch Dashboard")
