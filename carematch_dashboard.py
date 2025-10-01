@@ -120,3 +120,64 @@ fig8, ax8 = plt.subplots(figsize=(12,6))
 ax8.imshow(wordcloud, interpolation="bilinear")
 ax8.axis("off")
 st.pyplot(fig8)
+# === Case & Provider Counts with Filters ===
+st.header("📊 Case & Provider Counts with Filters")
+st.sidebar.header("🔎 Filters")
+st.markdown("""
+- ***Provider Coverage by Location:** How many unique providers are available within each zip code?
+
+- ***Workload Distribution by Month:*** How many patient cases are assigned to each provider on a monthly basis?
+
+- ***Provider Case Volume:*** How many total cases each provider ID is responsible for managing, reflecting workload intensity.""")
+
+zip_options = sorted(carematch['zip_code'].dropna().unique())
+provider_options = sorted(carematch['assigned_provider_id'].dropna().unique())
+selected_zip = st.sidebar.selectbox("Select a Zip Code", ["All"] + list(zip_options))
+selected_provider = st.sidebar.selectbox("Select a Provider ID", ["All"] + list(provider_options))
+
+# Cases per zip
+cases_per_zip = carematch['zip_code'].value_counts().reset_index()
+cases_per_zip.columns = ['zip_code', 'total_cases']
+providers_per_zip = carematch.groupby("zip_code")["assigned_provider_id"].nunique().reset_index(name="unique_providers")
+zip_summary = pd.merge(cases_per_zip, providers_per_zip, on="zip_code")
+if selected_zip != "All":
+    zip_summary = zip_summary[zip_summary['zip_code'] == selected_zip]
+st.subheader("📍 Zip Code Summary")
+st.dataframe(zip_summary)
+
+# Provider case counts
+provider_case_counts = carematch['assigned_provider_id'].value_counts().reset_index()
+provider_case_counts.columns = ['assigned_provider_id', 'total_cases_for_provider']
+if selected_provider != "All":
+    provider_case_counts = provider_case_counts[provider_case_counts['assigned_provider_id'] == selected_provider]
+st.subheader("👨‍⚕️ Provider Case Counts")
+st.dataframe(provider_case_counts)
+
+# Cases per provider within zip
+zip_provider_cases = carematch.groupby(["zip_code", "assigned_provider_id"]).size().reset_index(name="case_count")
+if selected_zip != "All":
+    zip_provider_cases = zip_provider_cases[zip_provider_cases['zip_code'] == selected_zip]
+if selected_provider != "All":
+    zip_provider_cases = zip_provider_cases[zip_provider_cases['assigned_provider_id'] == selected_provider]
+st.subheader("📍+👨‍⚕️ Cases per Provider within each Zip Code")
+st.dataframe(zip_provider_cases)
+
+# === Monthly Case Counts ===
+st.header("📅 Monthly Case Counts per Provider")
+carematch['request_timestamp'] = pd.to_datetime(carematch['request_timestamp'])
+carematch['request_month'] = carematch['request_timestamp'].dt.to_period("M")
+
+monthly_counts = carematch.groupby(['assigned_provider_id','request_month']).size().reset_index(name='case_count')
+years = sorted(carematch['request_timestamp'].dt.year.unique())
+months = sorted(carematch['request_timestamp'].dt.month.unique())
+selected_year = st.sidebar.selectbox("Select Year", ["All"] + list(years))
+selected_month = st.sidebar.selectbox("Select Month", ["All"] + list(months))
+
+filtered = monthly_counts.copy()
+if selected_year != "All":
+    filtered = filtered[filtered['request_month'].dt.year == int(selected_year)]
+if selected_month != "All":
+    filtered = filtered[filtered['request_month'].dt.month == int(selected_month)]
+st.subheader("📊 Case Counts per Provider (Filtered by Month/Year)")
+st.dataframe(filtered)
+
