@@ -33,6 +33,59 @@ with st.status("Starting up…", expanded=True):
         st.exception(e)
         st.stop()
 # ---- End startup guard ----
+# --- Hard Diagnostic App (temporary) ---
+import os, sys, importlib, json
+from pathlib import Path
+import streamlit as st
+
+st.set_page_config(page_title="Carematch – Diagnostics", layout="wide")
+
+def probe_import(name):
+    try:
+        m = importlib.import_module(name)
+        v = getattr(m, "__version__", "unknown")
+        return {"ok": True, "version": str(v)}
+    except Exception as e:
+        return {"ok": False, "error": repr(e)}
+
+with st.status("Probing environment…", expanded=True):
+    try:
+        st.write("**Python**:", sys.version)
+        st.write("**CWD**:", os.getcwd())
+        here = Path(__file__).resolve().parent
+        st.write("**Script dir**:", str(here))
+        st.write("**Files in repo root**:", os.listdir("."))
+
+        # Check CSV presence (case-sensitive)
+        csv_path = here / "carematch_requests.csv"
+        st.write("**Expected CSV path**:", str(csv_path))
+        st.write("**CSV exists?**", csv_path.exists())
+
+        # Check critical imports one by one
+        mods = [
+            "streamlit", "pandas", "numpy", "matplotlib",
+            "seaborn", "scipy", "sklearn", "yake", "wordcloud",
+        ]
+        results = {m: probe_import(m) for m in mods}
+        st.write("**Import probe results:**")
+        st.json(results)
+
+        # If imports OK and CSV exists, try a quick read
+        if results["pandas"]["ok"] and csv_path.exists():
+            import pandas as pd
+            df = pd.read_csv(csv_path, nrows=3)
+            st.success("CSV read OK. Preview:")
+            st.dataframe(df)
+        else:
+            st.info("Skipped CSV read (pandas not loaded or CSV missing).")
+
+        st.success("Diagnostics completed.")
+    except Exception as e:
+        st.error("Diagnostic app failed:")
+        st.exception(e)
+        st.stop()
+# --- End diagnostic app ---
+
 
 st.markdown(""" ***GROUP 4***: TU PHAM & MINH NGUYEN""")
 # === Dashboard Title ===
