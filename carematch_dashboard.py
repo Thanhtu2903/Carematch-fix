@@ -76,7 +76,10 @@ st.subheader("Wait Time by Urgency Score")
 fig5, ax5 = plt.subplots(figsize=(10,6))
 sns.boxplot(data=carematch, x="urgency_score", y="wait_time", palette="Set3", ax=ax5)
 st.pyplot(fig5)
-
+st.subheader("Age by provider_specialty")
+fig5, ax5 = plt.subplots(figsize=(10,6))
+sns.boxplot(data=carematch, x="age", y="provider_specialty", palette="Set3", ax=ax5)
+st.pyplot(fig5)
 # === Countplots ===
 st.header("📊 Distribution of Categorical Variables")
 col3, col4 = st.columns(2)
